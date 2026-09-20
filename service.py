@@ -1,4 +1,8 @@
-"""海外短剧制片协作的基础运行入口。"""
+"""海外短剧制片协作的运行入口。
+
+- ``python3 service.py --check``         基础自检
+- ``python3 service.py --port 8000``     启动 HTTP/JSON API（默认 data/production.db）
+"""
 
 import argparse
 import json
@@ -14,7 +18,7 @@ def health_payload():
 
 
 class Handler(BaseHTTPRequestHandler):
-    """提供基础健康检查。"""
+    """仅提供健康检查；业务路由见 production.api。"""
 
     def do_GET(self):
         if self.path != "/health":
@@ -34,13 +38,21 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=SERVICE_NAME)
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--db", default="data/production.db",
+                        help="SQLite 数据库路径（:memory: 仅用于测试）")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     if args.check:
         assert health_payload()["service"] == SERVICE_ID
+        # 进一步确保领域后端可在空库上初始化
+        from production.backend import Backend
+
+        Backend(":memory:")
         print("基础检查通过")
         return
-    ThreadingHTTPServer(("0.0.0.0", args.port), Handler).serve_forever()
+    from production.api import serve
+
+    serve(args.db, args.port)
 
 
 if __name__ == "__main__":

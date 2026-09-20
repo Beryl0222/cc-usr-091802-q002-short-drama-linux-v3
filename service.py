@@ -1,8 +1,14 @@
-"""海外短剧制片协作的基础运行入口。"""
+"""海外短剧制片协作的运行入口。
+
+- ``GET /health``：服务身份健康检查（基线契约）
+- ``/api/*``：海外制片协作领域接口，见 :mod:`studio.api`
+"""
 
 import argparse
 import json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
+
+from studio.api import ApiHandler
 
 SERVICE_ID = "global-drama-production"
 SERVICE_NAME = "海外短剧制片协作"
@@ -13,22 +19,19 @@ def health_payload():
     return {"status": "ok", "service": SERVICE_ID, "name": SERVICE_NAME}
 
 
-class Handler(BaseHTTPRequestHandler):
-    """提供基础健康检查。"""
+class Handler(ApiHandler):
+    """在领域 API 之外保留根级健康检查。"""
 
     def do_GET(self):
-        if self.path != "/health":
-            self.send_error(404)
+        if self.path == "/health":
+            body = json.dumps(health_payload(), ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
-        body = json.dumps(health_payload(), ensure_ascii=False).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, *_args):
-        return
+        super().do_GET()
 
 
 def main():
